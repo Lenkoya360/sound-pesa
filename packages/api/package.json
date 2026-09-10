@@ -1,0 +1,17 @@
+{
+  "name": "@sound-pesa/api",
+  "version": "1.0.0",
+  "description": "Django REST API for Sound Pesa cryptocurrency platform",
+  "private": true,
+  "scripts": {
+    "dev": "python manage.py runserver 0.0.0.0:8000",
+    "migrate": "python manage.py migrate",
+    "makemigrations": "python manage.py makemigrations",
+    "collectstatic": "python manage.py collectstatic --noinput",
+    "createsuperuser": "python manage.py createsuperuser",
+    "shell": "python manage.py shell",
+    "test": "python manage.py test"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

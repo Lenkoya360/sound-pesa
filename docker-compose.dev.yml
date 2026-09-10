@@ -1,0 +1,315 @@
+services:
+  # Development Reverse Proxy
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx.Dockerfile
+      target: development
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+      - web
+      - app
+    volumes:
+      - ./docker/nginx:/etc/nginx/conf.d:ro
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # Django REST API (Development)
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: development
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=sound_pesa.settings.development
+      - DATABASE_URL=postgresql://soundpesa:devpassword@postgres:5432/soundpesa
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=dev-token
+      - DEBUG=1
+    depends_on:
+      - postgres
+      - redis
+      - vault
+    volumes:
+      - ./packages/api:/app/api:cached
+      - ./packages/shared:/app/shared:cached
+      - api_static_dev:/app/api/staticfiles
+      - api_media_dev:/app/api/media
+    networks:
+      - backend
+      - blockchain
+    restart: unless-stopped
+    command: python manage.py runserver 0.0.0.0:8000
+    working_dir: /app/api
+
+  # Next.js Web Application (Development)
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost/api
+      - NEXT_PUBLIC_WS_URL=ws://localhost/ws
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - api
+    volumes:
+      - ./packages/web:/app/packages/web:cached
+      - ./packages/shared:/app/packages/shared:cached
+      - /app/packages/web/node_modules
+      - /app/packages/shared/node_modules
+    networks:
+      - frontend
+    restart: unless-stopped
+
+  # React Native Development Server (rn-crypto-wallet)
+  app:
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+      target: development
+    ports:
+      - "8081:8081" # Metro bundler
+      - "19000:19000" # Expo dev tools
+      - "19001:19001" # Expo dev server
+      - "19002:19002" # Expo tunnel
+    environment:
+      - NODE_ENV=development
+      - EXPO_DEVTOOLS_LISTEN_ADDRESS=0.0.0.0
+      - REACT_NATIVE_PACKAGER_HOSTNAME=0.0.0.0
+      - API_URL=http://api:8000
+      - WS_URL=ws://api:8000/ws
+      - EXPO_PUBLIC_API_URL=http://localhost:8000
+      - BITCOIN_RPC_URL=http://bitcoin-core:8332
+      - ETHEREUM_RPC_URL=http://geth:8545
+      - CARDANO_RPC_URL=http://cardano-node:3001
+      - POLKADOT_RPC_URL=ws://polkadot:9944
+    depends_on:
+      - api
+    volumes:
+      - ./packages/app:/app/packages/app:cached
+      - ./packages/shared:/app/packages/shared:cached
+      - /app/packages/app/node_modules
+      - /app/packages/shared/node_modules
+    networks:
+      - frontend
+      - blockchain
+    restart: unless-stopped
+    command: npx expo start --tunnel
+
+  # Celery Worker (Development)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: development
+    command: celery -A sound_pesa worker -l debug --concurrency=2
+    environment:
+      - DJANGO_SETTINGS_MODULE=sound_pesa.settings.development
+      - DATABASE_URL=postgresql://soundpesa:devpassword@postgres:5432/soundpesa
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - VAULT_ADDR=http://vault:8200
+      - VAULT_TOKEN=dev-token
+      - DEBUG=1
+    depends_on:
+      - postgres
+      - redis
+      - vault
+    volumes:
+      - ./packages/api:/app/api:cached
+      - ./packages/shared:/app/shared:cached
+      - api_media_dev:/app/api/media
+    networks:
+      - backend
+      - blockchain
+    restart: unless-stopped
+
+  # Celery Beat Scheduler (Development)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+      target: development
+    command: celery -A sound_pesa beat -l debug --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DJANGO_SETTINGS_MODULE=sound_pesa.settings.development
+      - DATABASE_URL=postgresql://soundpesa:devpassword@postgres:5432/soundpesa
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - DEBUG=1
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./packages/api:/app/api:cached
+      - ./packages/shared:/app/shared:cached
+      - celery_beat_dev:/app/celerybeat-schedule
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # PostgreSQL Database (Development)
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=soundpesa
+      - POSTGRES_USER=soundpesa
+      - POSTGRES_PASSWORD=devpassword
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./docker/postgres/init-dev.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soundpesa -d soundpesa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache and Message Broker (Development)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_dev:/data
+    networks:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # HashiCorp Vault (Development)
+  vault:
+    image: hashicorp/vault:latest
+    ports:
+      - "8200:8200"
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - VAULT_DEV_ROOT_TOKEN_ID=dev-token
+      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
+    volumes:
+      - vault_data_dev:/vault/data
+      - vault_logs_dev:/vault/logs
+    networks:
+      - backend
+    restart: unless-stopped
+
+  # Prometheus Monitoring (Development)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./docker/prometheus/prometheus-dev.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data_dev:/prometheus
+    networks:
+      - monitoring
+      - backend
+    restart: unless-stopped
+
+  # Grafana Dashboards (Development)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana_data_dev:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      - monitoring
+      - frontend
+    restart: unless-stopped
+
+  # Loki Log Aggregation (Development)
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./docker/loki/loki-dev-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data_dev:/loki
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Promtail Log Collection (Development)
+  promtail:
+    image: grafana/promtail:latest
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./docker/promtail/promtail-dev-config.yml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Mailhog for email testing (Development only)
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+    networks:
+      - backend
+    restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+  blockchain:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+  vault_data_dev:
+  vault_logs_dev:
+  api_static_dev:
+  api_media_dev:
+  celery_beat_dev:
+  prometheus_data_dev:
+  grafana_data_dev:
+  loki_data_dev:

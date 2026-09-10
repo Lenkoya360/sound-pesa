@@ -1,0 +1,28 @@
+{
+  "name": "Westend",
+  "id": "westend2",
+  "chainType": "Live",
+  "bootNodes": [
+    "/dns/westend-bootnode-0.parity-westend.parity.io/tcp/30333/p2p/12D3KooWAuHzwGQ6rYMFHa7HZvhNaN4tt2qJ9eeeKDfhgU2ELMoS",
+    "/dns/westend-bootnode-1.parity-westend.parity.io/tcp/30333/p2p/12D3KooWHmvsEsfSx1qSiGTxGNGdm6dAK4N5YjeJ2xjyK1BKmSjJ"
+  ],
+  "telemetryEndpoints": [
+    [
+      "/dns/telemetry.polkadot.io/tcp/443/x-parity-wss/%2Fsubmit%2F",
+      0
+    ]
+  ],
+  "protocolId": "wnd",
+  "properties": {
+    "ss58Format": 42,
+    "tokenDecimals": 12,
+    "tokenSymbol": "WND"
+  },
+  "relay_chain": null,
+  "para_id": null,
+  "codeSubstitutes": {},
+  "genesis": {
+    "runtime": null,
+    "raw": {}
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "NetworkName": "preprod",
+  "NodeConfigFile": "/opt/cardano/config/config.json",
+  "RequiresNetworkMagic": "RequiresMagic",
+  "EnableLogMetrics": false,
+  "EnableLogging": true,
+  "PrometheusPort": 8080,
+  "hasEKG": 8081,
+  "minSeverity": "Info",
+  "defaultBackends": [
+    "KatipBK"
+  ],
+  "defaultScribes": [
+    [
+      "StdoutSK",
+      "stdout"
+    ]
+  ],
+  "setupBackends": [
+    "KatipBK"
+  ],
+  "setupScribes": [
+    {
+      "scFormat": "ScText",
+      "scKind": "StdoutSK",
+      "scName": "stdout",
+      "scRotation": null
+    }
+  ],
+  "options": {
+    "mapBackends": {},
+    "mapSubtrace": {
+      "cardano.db-sync.node": {
+        "subtrace": "NoTrace"
+      }
+    }
+  }
+}

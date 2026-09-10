@@ -1,0 +1,361 @@
+version: '3.8'
+
+services:
+  # Bitcoin Core Node
+  bitcoin-core:
+    image: bitcoin/bitcoin:25.0
+    container_name: bitcoin-core
+    command: >
+      bitcoind
+      -server=1
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0:8332
+      -rpcuser=${BITCOIN_RPC_USER:-soundpesa}
+      -rpcpassword=${BITCOIN_RPC_PASSWORD}
+      -testnet=${BITCOIN_TESTNET:-1}
+      -txindex=1
+      -dbcache=512
+      -maxmempool=300
+      -mempoolexpiry=72
+      -maxconnections=40
+      -rest=1
+      -zmqpubrawblock=tcp://0.0.0.0:28332
+      -zmqpubrawtx=tcp://0.0.0.0:28333
+      -zmqpubhashtx=tcp://0.0.0.0:28334
+      -zmqpubhashblock=tcp://0.0.0.0:28335
+    ports:
+      - "${BITCOIN_P2P_PORT:-18333}:18333"  # P2P port (testnet)
+      - "${BITCOIN_RPC_PORT:-8332}:8332"    # RPC port
+      - "28332:28332"  # ZMQ raw block
+      - "28333:28333"  # ZMQ raw tx
+      - "28334:28334"  # ZMQ hash tx
+      - "28335:28335"  # ZMQ hash block
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin
+      - ./docker/bitcoin/bitcoin.conf:/home/bitcoin/.bitcoin/bitcoin.conf:ro
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "bitcoin-cli", "-rpcuser=${BITCOIN_RPC_USER:-soundpesa}", "-rpcpassword=${BITCOIN_RPC_PASSWORD}", "getblockchaininfo"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # Ethereum Execution Layer (Geth)
+  geth:
+    image: ethereum/client-go:v1.13.5
+    container_name: geth
+    command: >
+      --http
+      --http.addr=0.0.0.0
+      --http.port=8545
+      --http.api=eth,net,web3,personal,admin,debug,txpool
+      --http.corsdomain="*"
+      --http.vhosts="*"
+      --ws
+      --ws.addr=0.0.0.0
+      --ws.port=8546
+      --ws.api=eth,net,web3,personal,admin,debug,txpool
+      --ws.origins="*"
+      --authrpc.addr=0.0.0.0
+      --authrpc.port=8551
+      --authrpc.vhosts="*"
+      --authrpc.jwtsecret=/geth/jwt.hex
+      --datadir=/geth/data
+      --syncmode=snap
+      --gcmode=archive
+      --cache=1024
+      --maxpeers=50
+      --nat=extip:${EXTERNAL_IP:-127.0.0.1}
+      --metrics
+      --metrics.addr=0.0.0.0
+      --metrics.port=6060
+      ${GETH_NETWORK:---sepolia}
+    ports:
+      - "${GETH_HTTP_PORT:-8545}:8545"   # HTTP RPC
+      - "${GETH_WS_PORT:-8546}:8546"     # WebSocket RPC
+      - "${GETH_AUTH_PORT:-8551}:8551"   # Auth RPC for consensus client
+      - "${GETH_P2P_PORT:-30303}:30303" # P2P port
+      - "6060:6060"  # Metrics
+    volumes:
+      - geth_data:/geth/data
+      - ./docker/ethereum/jwt.hex:/geth/jwt.hex:ro
+      - ./docker/ethereum/genesis.json:/geth/genesis.json:ro
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+        reservations:
+          cpus: '2.0'
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8545 -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"eth_syncing\",\"params\":[],\"id\":1}' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # Ethereum Consensus Layer (Prysm Beacon Chain)
+  prysm-beacon:
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain:v4.1.1
+    container_name: prysm-beacon
+    command: >
+      --accept-terms-of-use
+      --datadir=/data
+      --execution-endpoint=http://geth:8551
+      --jwt-secret=/data/jwt.hex
+      --rpc-host=0.0.0.0
+      --rpc-port=4000
+      --grpc-gateway-host=0.0.0.0
+      --grpc-gateway-port=3500
+      --monitoring-host=0.0.0.0
+      --monitoring-port=8080
+      --p2p-host-ip=${EXTERNAL_IP:-127.0.0.1}
+      --p2p-tcp-port=13000
+      --p2p-udp-port=12000
+      --min-sync-peers=1
+      --checkpoint-sync-url=${CHECKPOINT_SYNC_URL:-https://sepolia.beaconstate.info}
+      --genesis-beacon-api-url=${CHECKPOINT_SYNC_URL:-https://sepolia.beaconstate.info}
+      ${PRYSM_NETWORK:---sepolia}
+    ports:
+      - "${BEACON_RPC_PORT:-4000}:4000"     # RPC
+      - "${BEACON_GATEWAY_PORT:-3500}:3500" # gRPC Gateway
+      - "${BEACON_P2P_TCP:-13000}:13000"    # P2P TCP
+      - "${BEACON_P2P_UDP:-12000}:12000/udp" # P2P UDP
+      - "8080:8080"  # Metrics
+    volumes:
+      - prysm_data:/data
+      - ./docker/ethereum/jwt.hex:/data/jwt.hex:ro
+    depends_on:
+      - geth
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3500/eth/v1/node/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # Cardano Node
+  cardano-node:
+    image: inputoutput/cardano-node:8.7.3
+    container_name: cardano-node
+    environment:
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NETWORK=${CARDANO_NETWORK:-testnet}
+    command: >
+      cardano-node run
+      --topology /opt/cardano/config/topology.json
+      --database-path /opt/cardano/data
+      --socket-path /ipc/node.socket
+      --host-addr 0.0.0.0
+      --port 3001
+      --config /opt/cardano/config/config.json
+    ports:
+      - "${CARDANO_PORT:-3001}:3001"
+    volumes:
+      - cardano_data:/opt/cardano/data
+      - cardano_ipc:/ipc
+      - ./docker/cardano/config:/opt/cardano/config:ro
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '1.0'
+          memory: 1.5G
+    healthcheck:
+      test: ["CMD-SHELL", "cardano-cli query tip --testnet-magic 1097911063 --socket-path /ipc/node.socket || exit 1"]
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 600s
+
+  # Cardano DB Sync (for transaction indexing)
+  cardano-db-sync:
+    image: inputoutput/cardano-db-sync:13.2.0.1
+    container_name: cardano-db-sync
+    environment:
+      - POSTGRES_HOST=cardano-postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=cexplorer
+      - POSTGRES_USER=cardano
+      - POSTGRES_PASSWORD=${CARDANO_DB_PASSWORD}
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command: >
+      cardano-db-sync
+      --config /opt/cardano/config/db-sync-config.json
+      --socket-path /ipc/node.socket
+      --state-dir /opt/cardano/data
+      --schema-dir /opt/cardano/schema
+    volumes:
+      - cardano_ipc:/ipc
+      - cardano_db_sync_data:/opt/cardano/data
+      - ./docker/cardano/config:/opt/cardano/config:ro
+      - ./docker/cardano/schema:/opt/cardano/schema:ro
+    depends_on:
+      - cardano-node
+      - cardano-postgres
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  # PostgreSQL for Cardano DB Sync
+  cardano-postgres:
+    image: postgres:15-alpine
+    container_name: cardano-postgres
+    environment:
+      - POSTGRES_DB=cexplorer
+      - POSTGRES_USER=cardano
+      - POSTGRES_PASSWORD=${CARDANO_DB_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - cardano_postgres_data:/var/lib/postgresql/data
+      - ./docker/cardano/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cardano -d cexplorer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Polkadot Node
+  polkadot:
+    image: parity/polkadot:v1.6.0
+    container_name: polkadot
+    command: >
+      polkadot
+      --name="SoundPesa-Node"
+      --chain=${POLKADOT_CHAIN:-westend}
+      --base-path=/polkadot/data
+      --rpc-external
+      --rpc-cors=all
+      --rpc-methods=Safe
+      --rpc-port=9933
+      --ws-external
+      --ws-port=9944
+      --ws-max-connections=100
+      --prometheus-external
+      --prometheus-port=9615
+      --telemetry-url="wss://telemetry.polkadot.io/submit/ 0"
+      --pruning=1000
+      --state-cache-size=1073741824
+    ports:
+      - "${POLKADOT_RPC_PORT:-9933}:9933"   # HTTP RPC
+      - "${POLKADOT_WS_PORT:-9944}:9944"    # WebSocket RPC
+      - "${POLKADOT_P2P_PORT:-30333}:30333" # P2P port
+      - "9615:9615"  # Prometheus metrics
+    volumes:
+      - polkadot_data:/polkadot/data
+      - ./docker/polkadot/chainspec.json:/polkadot/chainspec.json:ro
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '1.0'
+          memory: 1.5G
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9933 -X POST -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"method\":\"system_health\",\"params\":[],\"id\":1}' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 300s
+
+  # Substrate API Sidecar (for Polkadot REST API)
+  substrate-api-sidecar:
+    image: parity/substrate-api-sidecar:v18.0.0
+    container_name: substrate-api-sidecar
+    environment:
+      - SAS_SUBSTRATE_WS_URL=ws://polkadot:9944
+      - SAS_EXPRESS_BIND_HOST=0.0.0.0
+      - SAS_EXPRESS_PORT=8080
+      - SAS_LOG_LEVEL=info
+    ports:
+      - "${SIDECAR_PORT:-8080}:8080"
+    depends_on:
+      - polkadot
+    networks:
+      - blockchain
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/blocks/head || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+networks:
+  blockchain:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  bitcoin_data:
+  geth_data:
+  prysm_data:
+  cardano_data:
+  cardano_ipc:
+  cardano_db_sync_data:
+  cardano_postgres_data:
+  polkadot_data:

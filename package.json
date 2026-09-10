@@ -1,0 +1,47 @@
+{
+  "name": "sound-pesa-platform",
+  "version": "1.0.0",
+  "description": "A fully containerized monorepo cryptocurrency platform for multi-chain transactions",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "clean": "npm run clean --workspaces && rm -rf node_modules",
+    "install:all": "npm install",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "prettier": "^3.0.0",
+    "eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/sound-pesa-platform.git"
+  },
+  "keywords": [
+    "cryptocurrency",
+    "blockchain",
+    "bitcoin",
+    "ethereum",
+    "cardano",
+    "polkadot",
+    "monorepo",
+    "docker"
+  ],
+  "author": "Sound Pesa Team",
+  "license": "MIT"
+}

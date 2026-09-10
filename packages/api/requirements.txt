@@ -1,0 +1,39 @@
+# Django and REST Framework
+Django==4.2.7
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.0
+django-cors-headers==4.3.1
+django-extensions==3.2.3
+django-debug-toolbar==4.2.0
+
+# Database
+psycopg2-binary==2.9.7
+django-redis==5.4.0
+
+# Celery for background tasks
+celery==5.3.4
+django-celery-beat==2.6.0
+redis==5.0.1
+
+# Monitoring
+django-prometheus==2.3.1
+
+# Vault integration
+hvac==2.0.0
+
+# Blockchain adapters (async HTTP + WebSocket clients)
+aiohttp==3.9.5
+websockets>=12,<18
+
+# Cryptography (wallet key handling)
+cryptography==42.0.5
+
+# Utilities
+python-decouple==3.8
+requests==2.31.0
+
+# Production server
+gunicorn==21.2.0
+
+# Declared at runtime by rest_framework_simplejwt (pkg_resources import)
+setuptools<81

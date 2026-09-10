@@ -1,0 +1,1103 @@
+openapi: 3.0.3
+info:
+  title: Sound Pesa API
+  description: |
+    Multi-chain cryptocurrency platform API providing secure peer-to-peer transactions 
+    across Bitcoin, Ethereum, Cardano, and Polkadot networks.
+    
+    ## Authentication
+    
+    The API uses JWT (JSON Web Token) authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ## Rate Limiting
+    
+    API endpoints are rate limited to prevent abuse:
+    - Authentication endpoints: 5 requests per minute
+    - Transaction endpoints: 10 requests per minute
+    - General endpoints: 100 requests per minute
+    
+    ## Error Handling
+    
+    All errors follow a consistent format with appropriate HTTP status codes and detailed error messages.
+    
+  version: 1.0.0
+  contact:
+    name: Sound Pesa Support
+    email: support@soundpesa.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.soundpesa.com
+    description: Production server
+  - url: https://staging-api.soundpesa.com
+    description: Staging server
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  # Authentication Endpoints
+  /api/auth/register/:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Create a new user account with email verification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login/:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many login attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/logout/:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate current JWT token
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/refresh/:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT token
+      description: Get new access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Valid refresh token
+              required:
+                - refresh_token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # User Management
+  /api/user/profile/:
+    get:
+      tags:
+        - User Management
+      summary: Get user profile
+      description: Retrieve current user's profile information
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - User Management
+      summary: Update user profile
+      description: Update current user's profile information
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Wallet Management
+  /api/wallets/:
+    get:
+      tags:
+        - Wallet Management
+      summary: List user wallets
+      description: Get all wallets for the authenticated user
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Wallets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Wallet'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Wallet Management
+      summary: Create new wallet
+      description: Generate a new wallet for specified blockchain
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletRequest'
+      responses:
+        '201':
+          description: Wallet created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/wallets/{blockchain}/balance/:
+    get:
+      tags:
+        - Wallet Management
+      summary: Get wallet balance
+      description: Retrieve balance for user's wallet on specified blockchain
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blockchain
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/BlockchainNetwork'
+          description: Blockchain network identifier
+      responses:
+        '200':
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletBalance'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/wallets/{blockchain}/history/:
+    get:
+      tags:
+        - Wallet Management
+      summary: Get transaction history
+      description: Retrieve transaction history for user's wallet on specified blockchain
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blockchain
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/BlockchainNetwork'
+          description: Blockchain network identifier
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of transactions per page
+      responses:
+        '200':
+          description: Transaction history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionHistory'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Transaction Processing
+  /api/transactions/send/:
+    post:
+      tags:
+        - Transaction Processing
+      summary: Send cryptocurrency
+      description: Initiate a cryptocurrency transaction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTransactionRequest'
+      responses:
+        '201':
+          description: Transaction initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          description: Validation error or insufficient balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/transactions/{transaction_id}/:
+    get:
+      tags:
+        - Transaction Processing
+      summary: Get transaction details
+      description: Retrieve details of a specific transaction
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: transaction_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Transaction ID
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/transactions/pending/:
+    get:
+      tags:
+        - Transaction Processing
+      summary: List pending transactions
+      description: Get all pending transactions for the authenticated user
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blockchain
+          in: query
+          schema:
+            $ref: '#/components/schemas/BlockchainNetwork'
+          description: Filter by blockchain network
+      responses:
+        '200':
+          description: Pending transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/transactions/estimate-fee/:
+    post:
+      tags:
+        - Transaction Processing
+      summary: Estimate transaction fee
+      description: Calculate estimated fee for a transaction
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeeEstimateRequest'
+      responses:
+        '200':
+          description: Fee estimated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionEstimate'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Blockchain Integration
+  /api/blockchain/{blockchain}/status/:
+    get:
+      tags:
+        - Blockchain Integration
+      summary: Get blockchain node status
+      description: Retrieve synchronization status of blockchain node
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blockchain
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/BlockchainNetwork'
+          description: Blockchain network identifier
+      responses:
+        '200':
+          description: Blockchain status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainStatus'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Blockchain node unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/blockchain/{blockchain}/block-height/:
+    get:
+      tags:
+        - Blockchain Integration
+      summary: Get current block height
+      description: Retrieve current block height for specified blockchain
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: blockchain
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/BlockchainNetwork'
+          description: Blockchain network identifier
+      responses:
+        '200':
+          description: Block height retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blockchain:
+                    $ref: '#/components/schemas/BlockchainNetwork'
+                  block_height:
+                    type: integer
+                    description: Current block height
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Timestamp of the latest block
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Blockchain node unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # Health Check
+  /api/health/:
+    get:
+      tags:
+        - System
+      summary: Health check
+      description: Check API and dependent services health
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: System is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Authentication Schemas
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - username
+        - password
+        - confirm_password
+        - first_name
+        - last_name
+        - country
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: Unique username
+        password:
+          type: string
+          minLength: 8
+          description: User's password (must contain uppercase, lowercase, number, and special character)
+        confirm_password:
+          type: string
+          description: Password confirmation
+        first_name:
+          type: string
+          maxLength: 50
+          description: User's first name
+        last_name:
+          type: string
+          maxLength: 50
+          description: User's last name
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          description: ISO 3166-1 alpha-2 country code
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+        password:
+          type: string
+          description: User's password
+        two_factor_code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: Two-factor authentication code (if enabled)
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: JWT refresh token
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type
+        user:
+          $ref: '#/components/schemas/User'
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+        expires_in:
+          type: integer
+          description: Token expiration time in seconds
+        token_type:
+          type: string
+          enum: [Bearer]
+          description: Token type
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User's email address
+        username:
+          type: string
+          description: User's username
+        created_at:
+          type: string
+          format: date-time
+          description: Account creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        is_active:
+          type: boolean
+          description: Whether the account is active
+        two_factor_enabled:
+          type: boolean
+          description: Whether 2FA is enabled
+        kyc_status:
+          type: string
+          enum: [pending, approved, rejected, not_started]
+          description: KYC verification status
+
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            first_name:
+              type: string
+              description: User's first name
+            last_name:
+              type: string
+              description: User's last name
+            phone_number:
+              type: string
+              description: User's phone number
+            country:
+              type: string
+              description: User's country code
+            date_of_birth:
+              type: string
+              format: date
+              description: User's date of birth
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          maxLength: 50
+        last_name:
+          type: string
+          maxLength: 50
+        phone_number:
+          type: string
+          pattern: '^\+[1-9]\d{1,14}$'
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+
+    # Blockchain Schemas
+    BlockchainNetwork:
+      type: string
+      enum: [bitcoin, ethereum, cardano, polkadot]
+      description: Supported blockchain networks
+
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Wallet ID
+        user_id:
+          type: string
+          format: uuid
+          description: Owner user ID
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        address:
+          type: string
+          description: Wallet address
+        created_at:
+          type: string
+          format: date-time
+          description: Wallet creation timestamp
+        is_active:
+          type: boolean
+          description: Whether the wallet is active
+        label:
+          type: string
+          description: Optional wallet label
+
+    CreateWalletRequest:
+      type: object
+      required:
+        - blockchain
+      properties:
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        label:
+          type: string
+          maxLength: 100
+          description: Optional wallet label
+
+    WalletBalance:
+      type: object
+      properties:
+        wallet_id:
+          type: string
+          format: uuid
+          description: Wallet ID
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        balance:
+          type: string
+          description: Total balance (as string for precision)
+        confirmed_balance:
+          type: string
+          description: Confirmed balance
+        unconfirmed_balance:
+          type: string
+          description: Unconfirmed balance
+        last_updated:
+          type: string
+          format: date-time
+          description: Last balance update timestamp
+        currency_symbol:
+          type: string
+          description: Currency symbol (BTC, ETH, etc.)
+
+    # Transaction Schemas
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Transaction ID
+        user_id:
+          type: string
+          format: uuid
+          description: User ID
+        from_wallet_id:
+          type: string
+          format: uuid
+          description: Source wallet ID
+        to_address:
+          type: string
+          description: Recipient address
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        amount:
+          type: string
+          description: Transaction amount (as string for precision)
+        fee:
+          type: string
+          description: Transaction fee
+        status:
+          $ref: '#/components/schemas/TransactionStatus'
+        transaction_hash:
+          type: string
+          description: Blockchain transaction hash
+        block_height:
+          type: integer
+          description: Block height where transaction was included
+        confirmations:
+          type: integer
+          description: Number of confirmations
+        created_at:
+          type: string
+          format: date-time
+          description: Transaction creation timestamp
+        confirmed_at:
+          type: string
+          format: date-time
+          description: Transaction confirmation timestamp
+        notes:
+          type: string
+          description: Optional transaction notes
+
+    TransactionStatus:
+      type: string
+      enum: [pending, confirmed, failed, cancelled, expired]
+      description: Transaction status
+
+    SendTransactionRequest:
+      type: object
+      required:
+        - blockchain
+        - to_address
+        - amount
+        - fee_level
+      properties:
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        to_address:
+          type: string
+          description: Recipient address
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,8})?$'
+          description: Amount to send
+        fee_level:
+          type: string
+          enum: [slow, standard, fast]
+          description: Fee priority level
+        notes:
+          type: string
+          maxLength: 500
+          description: Optional transaction notes
+
+    FeeEstimateRequest:
+      type: object
+      required:
+        - blockchain
+        - to_address
+        - amount
+      properties:
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        to_address:
+          type: string
+          description: Recipient address
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,8})?$'
+          description: Amount to send
+
+    TransactionEstimate:
+      type: object
+      properties:
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        amount:
+          type: string
+          description: Transaction amount
+        estimated_fee:
+          type: string
+          description: Estimated transaction fee
+        estimated_confirmation_time:
+          type: integer
+          description: Estimated confirmation time in minutes
+        network_congestion:
+          type: string
+          enum: [low, medium, high]
+          description: Current network congestion level
+
+    TransactionHistory:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        total_count:
+          type: integer
+          description: Total number of transactions
+        page:
+          type: integer
+          description: Current page number
+        page_size:
+          type: integer
+          description: Number of transactions per page
+        has_next:
+          type: boolean
+          description: Whether there are more pages
+        has_previous:
+          type: boolean
+          description: Whether there are previous pages
+
+    # Blockchain Status Schemas
+    BlockchainStatus:
+      type: object
+      properties:
+        blockchain:
+          $ref: '#/components/schemas/BlockchainNetwork'
+        is_synced:
+          type: boolean
+          description: Whether the node is fully synchronized
+        current_block:
+          type: integer
+          description: Current block height
+        highest_block:
+          type: integer
+          description: Highest known block height
+        sync_percentage:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          description: Synchronization percentage
+        peer_count:
+          type: integer
+          description: Number of connected peers
+        last_block_time:
+          type: string
+          format: date-time
+          description: Timestamp of the last block
+        network:
+          type: string
+          enum: [mainnet, testnet]
+          description: Network type
+
+    # System Schemas
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall system status
+        version:
+          type: string
+          description: API version
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+        services:
+          type: object
+          properties:
+            database:
+              type: string
+              enum: [up, down]
+              description: Database status
+            redis:
+              type: string
+              enum: [up, down]
+              description: Redis status
+            blockchain_nodes:
+              type: object
+              additionalProperties:
+                type: string
+                enum: [up, down]
+              description: Blockchain node statuses
+
+    # Common Response Schemas
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Success message
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: object
+              description: Additional error details
+            timestamp:
+              type: string
+              format: date-time
+              description: Error timestamp
+            request_id:
+              type: string
+              description: Unique request identifier for debugging
+
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: User Management
+    description: User profile and account management
+  - name: Wallet Management
+    description: Multi-chain wallet operations
+  - name: Transaction Processing
+    description: Cryptocurrency transaction handling
+  - name: Blockchain Integration
+    description: Blockchain node status and information
+  - name: System
+    description: System health and monitoring

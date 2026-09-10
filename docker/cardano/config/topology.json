@@ -1,0 +1,25 @@
+{
+  "localRoots": [
+    {
+      "accessPoints": [],
+      "advertise": false,
+      "valency": 1
+    }
+  ],
+  "publicRoots": [
+    {
+      "accessPoints": [
+        {
+          "address": "preprod-node.world.dev.cardano.org",
+          "port": 30000
+        },
+        {
+          "address": "preprod-node.play.dev.cardano.org", 
+          "port": 30000
+        }
+      ],
+      "advertise": false
+    }
+  ],
+  "useLedgerAfterSlot": -1
+}

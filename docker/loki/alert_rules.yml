@@ -1,0 +1,139 @@
+groups:
+  - name: sound_pesa_log_alerts
+    rules:
+      # High error rate from logs
+      - alert: HighErrorLogRate
+        expr: |
+          (
+            sum(rate({job="django-api"} |= "ERROR" [5m])) by (container_name)
+            /
+            sum(rate({job="django-api"}[5m])) by (container_name)
+          ) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High error rate detected in API logs"
+          description: "Error rate is {{ $value | humanizePercentage }} in {{ $labels.container_name }}"
+
+      # Critical errors in logs
+      - alert: CriticalErrorsInLogs
+        expr: rate({job="django-api"} |= "CRITICAL" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "Critical errors detected in API logs"
+          description: "Critical errors are occurring at {{ $value }} per second"
+
+      # Security events
+      - alert: SecurityEventDetected
+        expr: rate({job="security-audit"} |= "security_event" [5m]) > 0.01
+        for: 2m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Security events detected"
+          description: "Security events are occurring at {{ $value }} per second"
+
+      # Failed authentication attempts
+      - alert: HighFailedAuthRate
+        expr: rate({job="security-audit"} |= "failed_authentication" [5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High failed authentication rate"
+          description: "Failed authentication attempts at {{ $value }} per second"
+
+      # Suspicious transaction patterns
+      - alert: SuspiciousTransactionActivity
+        expr: rate({job="django-api"} |= "suspicious_transaction" [10m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          service: transactions
+        annotations:
+          summary: "Suspicious transaction activity detected"
+          description: "Suspicious transactions detected at {{ $value }} per second"
+
+      # Blockchain node errors
+      - alert: BlockchainNodeErrors
+        expr: rate({job="blockchain-nodes"} |= "ERROR" [5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: blockchain
+        annotations:
+          summary: "High error rate in blockchain nodes"
+          description: "Blockchain node errors at {{ $value }} per second in {{ $labels.blockchain }}"
+
+      # Database connection errors
+      - alert: DatabaseConnectionErrors
+        expr: rate({job="django-api"} |= "database" |= "connection" |= "error" [5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database connection errors detected"
+          description: "Database connection errors at {{ $value }} per second"
+
+      # Transaction processing failures
+      - alert: TransactionProcessingFailures
+        expr: rate({job="django-api"} |= "transaction" |= "failed" [5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          service: transactions
+        annotations:
+          summary: "High transaction processing failure rate"
+          description: "Transaction failures at {{ $value }} per second"
+
+      # Celery worker errors
+      - alert: CeleryWorkerErrors
+        expr: rate({container_name=~".*celery.*"} |= "ERROR" [5m]) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          service: celery
+        annotations:
+          summary: "Celery worker errors detected"
+          description: "Celery worker errors at {{ $value }} per second"
+
+      # Nginx 5xx errors
+      - alert: NginxServerErrors
+        expr: rate({job="nginx-access"} |~ "\" 5[0-9][0-9] " [5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: nginx
+        annotations:
+          summary: "High 5xx error rate in Nginx"
+          description: "Nginx 5xx errors at {{ $value }} per second"
+
+      # Memory allocation errors
+      - alert: MemoryAllocationErrors
+        expr: rate({job=~".*"} |= "OutOfMemoryError" or "MemoryError" [5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Memory allocation errors detected"
+          description: "Memory errors occurring in {{ $labels.job }}"
+
+      # Disk space warnings from logs
+      - alert: DiskSpaceWarningsInLogs
+        expr: rate({job=~".*"} |= "disk" |= "space" |= "low" [5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "Disk space warnings in logs"
+          description: "Disk space warnings detected in {{ $labels.job }}"

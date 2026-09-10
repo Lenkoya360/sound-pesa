@@ -1,0 +1,124 @@
+{
+  "AlonzoGenesisFile": "alonzo-genesis.json",
+  "AlonzoGenesisHash": "7e94a15f55d1e82d10f09203fa04bd80b016838e12ed58b1b3b5e8b5b8b5b8b5",
+  "ByronGenesisFile": "byron-genesis.json",
+  "ByronGenesisHash": "96fceff972c2c06bd3bb5243c39215333be6d56aaf4823073dca31afe5038471",
+  "ConwayGenesisFile": "conway-genesis.json",
+  "ConwayGenesisHash": "f28f1c1280ea0d32f8cd3dce168a8d9c4395b7c4b7c4b7c4b7c4b7c4b7c4b7c4",
+  "ShelleyGenesisFile": "shelley-genesis.json",
+  "ShelleyGenesisHash": "849a1764f152e1b09c89c0dfdbcbdd38d711d1fec2db5dfa0f87cf2737a0eaf4",
+  "LastKnownBlockVersion-Alt": 0,
+  "LastKnownBlockVersion-Major": 3,
+  "LastKnownBlockVersion-Minor": 0,
+  "MaxKnownMajorProtocolVersion": 2,
+  "Protocol": "Cardano",
+  "RequiresNetworkMagic": "RequiresNoMagic",
+  "TestShelleyHardForkAtEpoch": 0,
+  "TestShelleyHardForkAtVersion": 2,
+  "TestAllegraHardForkAtEpoch": 0,
+  "TestAllegraHardForkAtVersion": 3,
+  "TestMaryHardForkAtEpoch": 0,
+  "TestMaryHardForkAtVersion": 4,
+  "TestAlonzoHardForkAtEpoch": 0,
+  "TestAlonzoHardForkAtVersion": 5,
+  "TestBabbageHardForkAtEpoch": 0,
+  "TestBabbageHardForkAtVersion": 7,
+  "TestConwayHardForkAtEpoch": 0,
+  "TestConwayHardForkAtVersion": 9,
+  "PBftSignatureThreshold": 0.6,
+  "minSeverity": "Info",
+  "EnableLogMetrics": false,
+  "EnableLogging": true,
+  "hasEKG": 12788,
+  "hasPrometheus": [
+    "127.0.0.1",
+    12798
+  ],
+  "setupBackends": [
+    "KatipBK"
+  ],
+  "defaultBackends": [
+    "KatipBK"
+  ],
+  "setupScribes": [
+    {
+      "scFormat": "ScText",
+      "scKind": "StdoutSK",
+      "scName": "stdout",
+      "scRotation": null
+    }
+  ],
+  "defaultScribes": [
+    [
+      "StdoutSK",
+      "stdout"
+    ]
+  ],
+  "options": {
+    "mapBackends": {
+      "cardano.node.ChainDB.metrics": [
+        "EKGViewBK",
+        "KatipBK"
+      ],
+      "cardano.node.metrics": [
+        "EKGViewBK"
+      ]
+    },
+    "mapSubtrace": {
+      "#ekgview": {
+        "contents": [
+          [
+            {
+              "contents": "cardano.epoch-validation.benchmark",
+              "tag": "Contains"
+            },
+            [
+              {
+                "contents": ".monoclock.basic.",
+                "tag": "Contains"
+              }
+            ]
+          ],
+          [
+            {
+              "contents": "cardano.epoch-validation.benchmark",
+              "tag": "Contains"
+            },
+            [
+              {
+                "contents": "diff.RTS.cpuNs.timed.",
+                "tag": "Contains"
+              }
+            ]
+          ],
+          [
+            {
+              "contents": "#ekgview.#aggregation.cardano.epoch-validation.benchmark",
+              "tag": "StartsWith"
+            },
+            [
+              {
+                "contents": "diff.RTS.gcNum.timed.",
+                "tag": "Contains"
+              }
+            ]
+          ]
+        ],
+        "subtrace": "FilterTrace"
+      },
+      "benchmark": {
+        "contents": [
+          "GhcRtsStats",
+          "MonoClock"
+        ],
+        "subtrace": "ObservableTrace"
+      },
+      "cardano.epoch-validation.utxo-stats": {
+        "subtrace": "NoTrace"
+      },
+      "cardano.node.metrics": {
+        "subtrace": "Neutral"
+      }
+    }
+  }
+}

@@ -1,0 +1,116 @@
+groups:
+  - name: sound_pesa_alerts
+    rules:
+      # API Health Alerts
+      - alert: APIHighErrorRate
+        expr: rate(django_http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High API error rate detected"
+          description: "API error rate is {{ $value }} errors per second"
+
+      - alert: APIHighResponseTime
+        expr: histogram_quantile(0.95, rate(django_http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API response time"
+          description: "95th percentile response time is {{ $value }} seconds"
+
+      # Transaction Processing Alerts
+      - alert: TransactionProcessingFailure
+        expr: rate(sound_pesa_transaction_failures_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High transaction failure rate"
+          description: "Transaction failure rate is {{ $value }} per second"
+
+      - alert: TransactionQueueBacklog
+        expr: sound_pesa_transaction_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Transaction queue backlog"
+          description: "{{ $value }} transactions pending in queue"
+
+      # Blockchain Node Alerts
+      - alert: BlockchainNodeDown
+        expr: up{job=~"bitcoin-core|geth|cardano-node|polkadot-node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Blockchain node is down"
+          description: "{{ $labels.job }} node is not responding"
+
+      - alert: BlockchainSyncLag
+        expr: sound_pesa_blockchain_sync_lag_blocks > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Blockchain sync lag detected"
+          description: "{{ $labels.blockchain }} is {{ $value }} blocks behind"
+
+      # Database Alerts
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection usage"
+          description: "Database connection usage is {{ $value | humanizePercentage }}"
+
+      - alert: DatabaseDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database is not responding"
+
+      # System Resource Alerts
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: HighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.mountpoint }}"
+
+      # Security Alerts
+      - alert: HighFailedLoginAttempts
+        expr: rate(sound_pesa_failed_login_attempts_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High failed login attempts"
+          description: "{{ $value }} failed login attempts per second"
+
+      - alert: SuspiciousTransactionPattern
+        expr: rate(sound_pesa_suspicious_transactions_total[10m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Suspicious transaction pattern detected"
+          description: "{{ $value }} suspicious transactions per second"
